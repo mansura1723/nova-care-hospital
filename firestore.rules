@@ -1,0 +1,678 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------
+    // Global Hardened Primitives
+    // ---------------------------------------------------------
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isVerifiedUser() && request.auth.uid == uid;
+    }
+
+    function isBootstrappedAdminEmail() {
+      return isVerifiedUser() && request.auth.token.email == 'mansuramim439@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdminEmail() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidBoundedString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidStringList(listVal, maxItems) {
+      return listVal is list && listVal.size() <= maxItems && (listVal.size() == 0 || listVal[0] is string);
+    }
+
+    // ---------------------------------------------------------
+    // Entity Validation Blueprints
+    // ---------------------------------------------------------
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['uid', 'email', 'name', 'role', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'name', 'role', 'createdAt']) &&
+        isValidId(data.uid) &&
+        isValidBoundedString(data.email, 3, 160) &&
+        isValidBoundedString(data.name, 1, 120) &&
+        data.role in ['admin', 'super_admin'] &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'displayName', 'email', 'phone', 'dateOfBirth', 'gender', 'bloodGroup', 'role', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        data.uid == request.auth.uid &&
+        isValidBoundedString(data.displayName, 1, 120) &&
+        isValidBoundedString(data.email, 3, 160) &&
+        (!('phone' in data) || isValidBoundedString(data.phone, 0, 32)) &&
+        (!('dateOfBirth' in data) || isValidBoundedString(data.dateOfBirth, 0, 20)) &&
+        (!('gender' in data) || data.gender in ['Male', 'Female', 'Other', 'Prefer not to say']) &&
+        (!('bloodGroup' in data) || isValidBoundedString(data.bloodGroup, 0, 10)) &&
+        data.role == 'patient' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDoctor(data) {
+      return data.keys().hasAll([
+        'id', 'slug', 'name', 'designation', 'departmentId', 'departmentName',
+        'qualifications', 'experienceYears', 'bio', 'isFeatured', 'isAvailableToday', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'slug', 'name', 'designation', 'departmentId', 'departmentName',
+        'qualifications', 'experienceYears', 'bio', 'consultationDays', 'availableSlots',
+        'consultationFeeDemo', 'photoUrl', 'isFeatured', 'isAvailableToday', 'languages',
+        'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidBoundedString(data.slug, 1, 128) &&
+      isValidBoundedString(data.name, 2, 120) &&
+      isValidBoundedString(data.designation, 2, 140) &&
+      isValidId(data.departmentId) &&
+      isValidBoundedString(data.departmentName, 2, 100) &&
+      isValidBoundedString(data.qualifications, 2, 180) &&
+      data.experienceYears is number && data.experienceYears >= 0 && data.experienceYears <= 80 &&
+      isValidBoundedString(data.bio, 10, 2000) &&
+      (!('consultationDays' in data) || isValidStringList(data.consultationDays, 7)) &&
+      (!('availableSlots' in data) || isValidStringList(data.availableSlots, 16)) &&
+      (!('consultationFeeDemo' in data) || (data.consultationFeeDemo is number && data.consultationFeeDemo >= 0 && data.consultationFeeDemo <= 100000)) &&
+      (!('photoUrl' in data) || isValidBoundedString(data.photoUrl, 0, 300)) &&
+      (!('languages' in data) || isValidStringList(data.languages, 6)) &&
+      data.isFeatured is bool &&
+      data.isAvailableToday is bool &&
+      (!('createdAt' in data) || data.createdAt is timestamp) &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidDepartment(data) {
+      return data.keys().hasAll(['id', 'slug', 'name', 'category', 'bodyRegion', 'overview', 'isActive', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'slug', 'name', 'nameBn', 'category', 'bodyRegion', 'overview',
+          'services', 'commonConditions', 'diagnostics', 'relatedSlugs', 'isActive', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidBoundedString(data.slug, 1, 128) &&
+        isValidBoundedString(data.name, 2, 100) &&
+        (!('nameBn' in data) || isValidBoundedString(data.nameBn, 0, 140)) &&
+        isValidBoundedString(data.category, 2, 80) &&
+        isValidBoundedString(data.bodyRegion, 2, 60) &&
+        isValidBoundedString(data.overview, 10, 2500) &&
+        (!('services' in data) || isValidStringList(data.services, 25)) &&
+        (!('commonConditions' in data) || isValidStringList(data.commonConditions, 25)) &&
+        (!('diagnostics' in data) || isValidStringList(data.diagnostics, 20)) &&
+        (!('relatedSlugs' in data) || isValidStringList(data.relatedSlugs, 10)) &&
+        data.isActive is bool &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAppointment(data) {
+      return data.keys().hasAll([
+        'id', 'referenceNumber', 'userId', 'patientName', 'dateOfBirth', 'gender',
+        'phone', 'email', 'departmentId', 'departmentName', 'doctorId', 'doctorName',
+        'preferredDate', 'timeSlot', 'consultationType', 'status', 'slotKey',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'referenceNumber', 'userId', 'patientName', 'dateOfBirth', 'gender',
+        'phone', 'email', 'departmentId', 'departmentName', 'doctorId', 'doctorName',
+        'preferredDate', 'timeSlot', 'consultationType', 'message', 'status', 'slotKey',
+        'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidBoundedString(data.referenceNumber, 4, 40) &&
+      isValidId(data.userId) &&
+      isValidBoundedString(data.patientName, 2, 120) &&
+      isValidBoundedString(data.dateOfBirth, 4, 20) &&
+      data.gender in ['Male', 'Female', 'Other'] &&
+      isValidBoundedString(data.phone, 6, 32) &&
+      isValidBoundedString(data.email, 4, 160) &&
+      isValidId(data.departmentId) &&
+      isValidBoundedString(data.departmentName, 2, 100) &&
+      isValidId(data.doctorId) &&
+      isValidBoundedString(data.doctorName, 2, 120) &&
+      isValidBoundedString(data.preferredDate, 8, 20) &&
+      isValidBoundedString(data.timeSlot, 3, 30) &&
+      data.consultationType in ['In-Person', 'Online Video'] &&
+      (!('message' in data) || isValidBoundedString(data.message, 0, 1000)) &&
+      data.status in ['pending', 'approved', 'reschedule_requested', 'cancelled', 'rejected', 'completed'] &&
+      isValidId(data.slotKey) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidSlotLock(data) {
+      return data.keys().hasAll([
+        'doctorId', 'preferredDate', 'timeSlot', 'bookedByUid', 'appointmentId', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'doctorId', 'preferredDate', 'timeSlot', 'bookedByUid', 'appointmentId', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.doctorId) &&
+      isValidBoundedString(data.preferredDate, 8, 20) &&
+      isValidBoundedString(data.timeSlot, 3, 30) &&
+      isValidId(data.bookedByUid) &&
+      isValidId(data.appointmentId) &&
+      data.status in ['booked', 'released'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidHealthPackage(data) {
+      return data.keys().hasAll(['id', 'slug', 'name', 'category', 'description', 'priceDemo', 'isPublished', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'slug', 'name', 'category', 'description', 'targetAudience',
+          'priceDemo', 'includedTests', 'preparation', 'imageUrl', 'isPublished', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidBoundedString(data.slug, 1, 128) &&
+        isValidBoundedString(data.name, 2, 140) &&
+        isValidBoundedString(data.category, 2, 80) &&
+        isValidBoundedString(data.description, 10, 2000) &&
+        (!('targetAudience' in data) || isValidBoundedString(data.targetAudience, 0, 200)) &&
+        data.priceDemo is number && data.priceDemo >= 0 && data.priceDemo <= 500000 &&
+        (!('includedTests' in data) || isValidStringList(data.includedTests, 40)) &&
+        (!('preparation' in data) || isValidBoundedString(data.preparation, 0, 1000)) &&
+        (!('imageUrl' in data) || isValidBoundedString(data.imageUrl, 0, 300)) &&
+        data.isPublished is bool &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPackageBooking(data) {
+      return data.keys().hasAll([
+        'id', 'referenceNumber', 'userId', 'packageId', 'packageName',
+        'patientName', 'phone', 'email', 'preferredDate', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'referenceNumber', 'userId', 'packageId', 'packageName',
+        'patientName', 'phone', 'email', 'preferredDate', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidBoundedString(data.referenceNumber, 4, 40) &&
+      isValidId(data.userId) &&
+      isValidId(data.packageId) &&
+      isValidBoundedString(data.packageName, 2, 140) &&
+      isValidBoundedString(data.patientName, 2, 120) &&
+      isValidBoundedString(data.phone, 6, 32) &&
+      isValidBoundedString(data.email, 4, 160) &&
+      isValidBoundedString(data.preferredDate, 8, 20) &&
+      data.status in ['pending', 'confirmed', 'cancelled'] &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidDiagnosticService(data) {
+      return data.keys().hasAll(['id', 'slug', 'name', 'category', 'description', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'slug', 'name', 'category', 'description', 'preparation', 'turnaroundTime', 'priceDemo', 'updatedAt']) &&
+        isValidId(data.id) &&
+        isValidBoundedString(data.slug, 1, 128) &&
+        isValidBoundedString(data.name, 2, 140) &&
+        isValidBoundedString(data.category, 2, 80) &&
+        isValidBoundedString(data.description, 10, 2000) &&
+        (!('preparation' in data) || isValidBoundedString(data.preparation, 0, 1000)) &&
+        (!('turnaroundTime' in data) || isValidBoundedString(data.turnaroundTime, 0, 120)) &&
+        (!('priceDemo' in data) || (data.priceDemo is number && data.priceDemo >= 0 && data.priceDemo <= 500000)) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidArticle(data) {
+      return data.keys().hasAll(['id', 'slug', 'title', 'kind', 'category', 'summary', 'content', 'isPublished', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'slug', 'title', 'kind', 'category', 'summary', 'content', 'author', 'publishedDate', 'imageUrl', 'isPublished', 'updatedAt']) &&
+        isValidId(data.id) &&
+        isValidBoundedString(data.slug, 1, 128) &&
+        isValidBoundedString(data.title, 4, 200) &&
+        data.kind in ['news', 'article', 'event', 'story', 'press'] &&
+        isValidBoundedString(data.category, 2, 80) &&
+        isValidBoundedString(data.summary, 4, 500) &&
+        isValidBoundedString(data.content, 10, 10000) &&
+        (!('author' in data) || isValidBoundedString(data.author, 0, 120)) &&
+        (!('publishedDate' in data) || isValidBoundedString(data.publishedDate, 0, 30)) &&
+        (!('imageUrl' in data) || isValidBoundedString(data.imageUrl, 0, 300)) &&
+        data.isPublished is bool &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidInquiry(data) {
+      return data.keys().hasAll(['id', 'userId', 'type', 'name', 'email', 'phone', 'subject', 'message', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'type', 'name', 'email', 'phone', 'subject', 'message', 'status', 'createdAt', 'updatedAt']) &&
+        isValidId(data.id) &&
+        isValidId(data.userId) &&
+        data.type in ['general', 'diagnostic', 'ambulance', 'international'] &&
+        isValidBoundedString(data.name, 2, 120) &&
+        isValidBoundedString(data.email, 4, 160) &&
+        isValidBoundedString(data.phone, 6, 32) &&
+        isValidBoundedString(data.subject, 2, 180) &&
+        isValidBoundedString(data.message, 5, 2000) &&
+        data.status in ['new', 'in_review', 'resolved'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['id', 'userId', 'patientName', 'rating', 'comment', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'patientName', 'departmentName', 'rating', 'comment', 'status', 'createdAt']) &&
+        isValidId(data.id) &&
+        isValidId(data.userId) &&
+        isValidBoundedString(data.patientName, 2, 120) &&
+        (!('departmentName' in data) || isValidBoundedString(data.departmentName, 0, 100)) &&
+        data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+        isValidBoundedString(data.comment, 5, 1500) &&
+        data.status in ['submitted', 'reviewed'] &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'message', 'category', 'isRead', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'title', 'message', 'category', 'isRead', 'createdAt', 'updatedAt']) &&
+        isValidId(data.id) &&
+        isValidId(data.userId) &&
+        isValidBoundedString(data.title, 2, 160) &&
+        isValidBoundedString(data.message, 2, 500) &&
+        data.category in ['appointment', 'report', 'system'] &&
+        data.isRead is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidJobListing(data) {
+      return data.keys().hasAll(['id', 'title', 'department', 'employmentType', 'location', 'description', 'isOpen', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'title', 'department', 'employmentType', 'location', 'description', 'isOpen', 'updatedAt']) &&
+        isValidId(data.id) &&
+        isValidBoundedString(data.title, 2, 140) &&
+        isValidBoundedString(data.department, 2, 100) &&
+        isValidBoundedString(data.employmentType, 2, 60) &&
+        isValidBoundedString(data.location, 2, 120) &&
+        isValidBoundedString(data.description, 10, 3000) &&
+        data.isOpen is bool &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidJobApplication(data) {
+      return data.keys().hasAll(['id', 'userId', 'jobId', 'jobTitle', 'applicantName', 'email', 'phone', 'cvFileName', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'jobId', 'jobTitle', 'applicantName', 'email', 'phone', 'cvFileName', 'coverNote', 'status', 'createdAt', 'updatedAt']) &&
+        isValidId(data.id) &&
+        isValidId(data.userId) &&
+        isValidId(data.jobId) &&
+        isValidBoundedString(data.jobTitle, 2, 140) &&
+        isValidBoundedString(data.applicantName, 2, 120) &&
+        isValidBoundedString(data.email, 4, 160) &&
+        isValidBoundedString(data.phone, 6, 32) &&
+        isValidBoundedString(data.cvFileName, 1, 160) &&
+        (!('coverNote' in data) || isValidBoundedString(data.coverNote, 0, 2000)) &&
+        data.status in ['received', 'shortlisted', 'archived'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDiagnosticReport(data) {
+      return data.keys().hasAll(['id', 'userId', 'reportCode', 'testName', 'category', 'reportDate', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'reportCode', 'testName', 'category', 'reportDate', 'status', 'summary', 'createdAt']) &&
+        isValidId(data.id) &&
+        isValidId(data.userId) &&
+        isValidBoundedString(data.reportCode, 4, 40) &&
+        isValidBoundedString(data.testName, 2, 160) &&
+        isValidBoundedString(data.category, 2, 80) &&
+        isValidBoundedString(data.reportDate, 8, 20) &&
+        data.status in ['Ready', 'Processing', 'Sample Collected'] &&
+        (!('summary' in data) || isValidBoundedString(data.summary, 0, 1000)) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidWebsiteSettings(data) {
+      return data.keys().hasAll(['hospitalName', 'emergencyNotice', 'emergencyContactLabel', 'contactEmail', 'address', 'defaultLanguage', 'updatedAt']) &&
+        data.keys().hasOnly(['hospitalName', 'emergencyNotice', 'emergencyContactLabel', 'generalPhoneLabel', 'contactEmail', 'address', 'defaultLanguage', 'primaryColor', 'accentColor', 'updatedAt']) &&
+        isValidBoundedString(data.hospitalName, 2, 100) &&
+        isValidBoundedString(data.emergencyNotice, 5, 500) &&
+        isValidBoundedString(data.emergencyContactLabel, 2, 120) &&
+        (!('generalPhoneLabel' in data) || isValidBoundedString(data.generalPhoneLabel, 0, 120)) &&
+        isValidBoundedString(data.contactEmail, 4, 160) &&
+        isValidBoundedString(data.address, 4, 300) &&
+        data.defaultLanguage in ['en', 'bn'] &&
+        (!('primaryColor' in data) || isValidBoundedString(data.primaryColor, 3, 20)) &&
+        (!('accentColor' in data) || isValidBoundedString(data.accentColor, 3, 20)) &&
+        data.updatedAt is timestamp;
+    }
+
+    // ---------------------------------------------------------
+    // Connection Probe Collection (Read-Only for SDK Startup Check)
+    // ---------------------------------------------------------
+    match /test/connection {
+      allow get: if true;
+      allow list, create, update, delete: if false;
+    }
+
+    // ---------------------------------------------------------
+    // Admins Collection
+    // ---------------------------------------------------------
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(adminId) && isValidAdmin(incoming()) &&
+        incoming().uid == adminId &&
+        incoming().createdAt == request.time &&
+        (isAdmin() || (isBootstrappedAdminEmail() && adminId == request.auth.uid));
+      allow update: if isValidId(adminId) && isAdmin() && isValidAdmin(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(adminId) && isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // Users Collection (PII Strictly Owner or Admin)
+    // ---------------------------------------------------------
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isOwner(userId) && isValidUser(incoming()) &&
+        incoming().uid == userId &&
+        incoming().role == 'patient' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() || (
+          isOwner(userId) &&
+          incoming().uid == existing().uid &&
+          incoming().role == existing().role &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'dateOfBirth', 'gender', 'bloodGroup', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // Public Medical Catalogs (Public Read, Admin Write)
+    // ---------------------------------------------------------
+    match /doctors/{doctorId} {
+      allow get: if isValidId(doctorId);
+      allow list: if true;
+      allow create: if isValidId(doctorId) && isAdmin() && isValidDoctor(incoming()) &&
+        incoming().id == doctorId &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(doctorId) && isAdmin() && isValidDoctor(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(doctorId) && isAdmin();
+    }
+
+    match /departments/{departmentId} {
+      allow get: if isValidId(departmentId);
+      allow list: if true;
+      allow create: if isValidId(departmentId) && isAdmin() && isValidDepartment(incoming()) &&
+        incoming().id == departmentId &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(departmentId) && isAdmin() && isValidDepartment(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(departmentId) && isAdmin();
+    }
+
+    match /healthPackages/{packageId} {
+      allow get: if isValidId(packageId);
+      allow list: if true;
+      allow create: if isValidId(packageId) && isAdmin() && isValidHealthPackage(incoming()) &&
+        incoming().id == packageId &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(packageId) && isAdmin() && isValidHealthPackage(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(packageId) && isAdmin();
+    }
+
+    match /diagnosticServices/{serviceId} {
+      allow get: if isValidId(serviceId);
+      allow list: if true;
+      allow create: if isValidId(serviceId) && isAdmin() && isValidDiagnosticService(incoming()) &&
+        incoming().id == serviceId &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(serviceId) && isAdmin() && isValidDiagnosticService(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(serviceId) && isAdmin();
+    }
+
+    match /articles/{articleId} {
+      allow get: if isValidId(articleId);
+      allow list: if true;
+      allow create: if isValidId(articleId) && isAdmin() && isValidArticle(incoming()) &&
+        incoming().id == articleId &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(articleId) && isAdmin() && isValidArticle(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(articleId) && isAdmin();
+    }
+
+    match /jobListings/{jobId} {
+      allow get: if isValidId(jobId);
+      allow list: if true;
+      allow create: if isValidId(jobId) && isAdmin() && isValidJobListing(incoming()) &&
+        incoming().id == jobId &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(jobId) && isAdmin() && isValidJobListing(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(jobId) && isAdmin();
+    }
+
+    match /websiteSettings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create: if isValidId(settingId) && isAdmin() && isValidWebsiteSettings(incoming()) &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(settingId) && isAdmin() && isValidWebsiteSettings(incoming()) &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // Appointments & Atomic Slot Locks
+    // ---------------------------------------------------------
+    match /appointmentSlots/{slotKey} {
+      allow get: if isValidId(slotKey) && isVerifiedUser();
+      allow list: if false;
+      allow create: if isValidId(slotKey) && isVerifiedUser() && isValidSlotLock(incoming()) &&
+        incoming().bookedByUid == request.auth.uid &&
+        incoming().status == 'booked' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        getAfter(/databases/$(database)/documents/appointments/$(incoming().appointmentId)).data.slotKey == slotKey &&
+        getAfter(/databases/$(database)/documents/appointments/$(incoming().appointmentId)).data.userId == request.auth.uid;
+      allow update: if isValidId(slotKey) && isVerifiedUser() && isValidSlotLock(incoming()) && (
+        isAdmin() || (
+          existing().bookedByUid == request.auth.uid &&
+          incoming().bookedByUid == existing().bookedByUid &&
+          incoming().doctorId == existing().doctorId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(slotKey) && isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow get: if isValidId(appointmentId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid);
+      allow create: if isValidId(appointmentId) && isVerifiedUser() && isValidAppointment(incoming()) &&
+        incoming().id == appointmentId &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        existsAfter(/databases/$(database)/documents/appointmentSlots/$(incoming().slotKey));
+      allow update: if isValidId(appointmentId) && isVerifiedUser() && isValidAppointment(incoming()) && (
+        (isAdmin() &&
+          incoming().id == existing().id &&
+          incoming().userId == existing().userId &&
+          incoming().referenceNumber == existing().referenceNumber &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time
+        ) || (
+          existing().userId == request.auth.uid &&
+          !(existing().status in ['cancelled', 'rejected', 'completed']) &&
+          incoming().id == existing().id &&
+          incoming().userId == existing().userId &&
+          incoming().referenceNumber == existing().referenceNumber &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            (incoming().status == 'cancelled' &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+            (incoming().status == 'reschedule_requested' &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['status', 'preferredDate', 'timeSlot', 'slotKey', 'updatedAt']) &&
+              existsAfter(/databases/$(database)/documents/appointmentSlots/$(incoming().slotKey)))
+          )
+        )
+      );
+      allow delete: if isValidId(appointmentId) && isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // Patient Package Bookings, Inquiries, Feedback, Reports, Notifications, Applications
+    // ---------------------------------------------------------
+    match /packageBookings/{bookingId} {
+      allow get: if isValidId(bookingId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid);
+      allow create: if isValidId(bookingId) && isVerifiedUser() && isValidPackageBooking(incoming()) &&
+        incoming().id == bookingId &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(bookingId) && isVerifiedUser() && isValidPackageBooking(incoming()) && (
+        (isAdmin() &&
+          incoming().id == existing().id &&
+          incoming().userId == existing().userId &&
+          incoming().packageId == existing().packageId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time
+        ) || (
+          existing().userId == request.auth.uid &&
+          existing().status != 'cancelled' &&
+          incoming().status == 'cancelled' &&
+          incoming().id == existing().id &&
+          incoming().userId == existing().userId &&
+          incoming().packageId == existing().packageId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(bookingId) && isAdmin();
+    }
+
+    match /inquiries/{inquiryId} {
+      allow get: if isValidId(inquiryId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid);
+      allow create: if isValidId(inquiryId) && isVerifiedUser() && isValidInquiry(incoming()) &&
+        incoming().id == inquiryId &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'new' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(inquiryId) && isAdmin() && isValidInquiry(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(inquiryId) && isAdmin();
+    }
+
+    match /feedback/{feedbackId} {
+      allow get: if isValidId(feedbackId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid);
+      allow create: if isValidId(feedbackId) && isVerifiedUser() && isValidFeedback(incoming()) &&
+        incoming().id == feedbackId &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'submitted' &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(feedbackId) && isAdmin() && isValidFeedback(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(feedbackId) && isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid);
+      allow create: if isValidId(notificationId) && isVerifiedUser() && isValidNotification(incoming()) &&
+        incoming().id == notificationId &&
+        (isAdmin() || incoming().userId == request.auth.uid) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(notificationId) && isVerifiedUser() && isValidNotification(incoming()) && (
+        isAdmin() || (
+          existing().userId == request.auth.uid &&
+          incoming().id == existing().id &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['isRead', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(notificationId) && isAdmin();
+    }
+
+    match /jobApplications/{applicationId} {
+      allow get: if isValidId(applicationId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid);
+      allow create: if isValidId(applicationId) && isVerifiedUser() && isValidJobApplication(incoming()) &&
+        incoming().id == applicationId &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'received' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(applicationId) && isAdmin() && isValidJobApplication(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(applicationId) && isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow get: if isValidId(reportId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid);
+      allow create: if isValidId(reportId) && isVerifiedUser() && isValidDiagnosticReport(incoming()) &&
+        incoming().id == reportId &&
+        (isAdmin() || incoming().userId == request.auth.uid) &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(reportId) && isAdmin() && isValidDiagnosticReport(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(reportId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,380 @@
+{
+  "entities": {
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized hospital administrator account",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["admin", "super_admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "name", "role", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Patient user profile stored securely with owner-only access",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "dateOfBirth": { "type": "string", "maxLength": 20 },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other", "Prefer not to say"] },
+        "bloodGroup": { "type": "string", "maxLength": 10 },
+        "role": { "type": "string", "enum": ["patient"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "role", "createdAt", "updatedAt"]
+    },
+    "Doctor": {
+      "title": "Doctor",
+      "description": "Medical specialist directory profile (demo physician)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "designation": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "departmentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "departmentName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "qualifications": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "experienceYears": { "type": "number" },
+        "bio": { "type": "string", "minLength": 10, "maxLength": 2000 },
+        "consultationFeeDemo": { "type": "number" },
+        "photoUrl": { "type": "string", "maxLength": 300 },
+        "isFeatured": { "type": "boolean" },
+        "isAvailableToday": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "designation", "departmentId", "departmentName", "qualifications", "experienceYears", "bio", "isFeatured", "isAvailableToday", "updatedAt"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Medical specialty department",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "nameBn": { "type": "string", "maxLength": 140 },
+        "category": { "type": "string", "maxLength": 80 },
+        "bodyRegion": { "type": "string", "maxLength": 60 },
+        "overview": { "type": "string", "minLength": 10, "maxLength": 2500 },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "category", "bodyRegion", "overview", "isActive", "updatedAt"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Patient appointment request record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "referenceNumber": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "patientName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "dateOfBirth": { "type": "string", "minLength": 4, "maxLength": 20 },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
+        "phone": { "type": "string", "minLength": 6, "maxLength": 32 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "departmentId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "departmentName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "doctorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "doctorName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "preferredDate": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "timeSlot": { "type": "string", "minLength": 3, "maxLength": 30 },
+        "consultationType": { "type": "string", "enum": ["In-Person", "Online Video"] },
+        "message": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["pending", "approved", "reschedule_requested", "cancelled", "rejected", "completed"] },
+        "slotKey": { "type": "string", "minLength": 5, "maxLength": 180, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "referenceNumber", "userId", "patientName", "dateOfBirth", "gender", "phone", "email", "departmentId", "departmentName", "doctorId", "doctorName", "preferredDate", "timeSlot", "consultationType", "status", "slotKey", "createdAt", "updatedAt"]
+    },
+    "AppointmentSlot": {
+      "title": "AppointmentSlot",
+      "description": "Atomic slot lock preventing duplicate appointment requests",
+      "type": "object",
+      "properties": {
+        "doctorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "preferredDate": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "timeSlot": { "type": "string", "minLength": 3, "maxLength": 30 },
+        "bookedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "appointmentId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["booked", "released"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["doctorId", "preferredDate", "timeSlot", "bookedByUid", "appointmentId", "status", "createdAt", "updatedAt"]
+    },
+    "HealthPackage": {
+      "title": "HealthPackage",
+      "description": "Preventive health checkup package",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 2000 },
+        "targetAudience": { "type": "string", "maxLength": 200 },
+        "priceDemo": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "category", "description", "priceDemo", "isPublished", "updatedAt"]
+    },
+    "PackageBooking": {
+      "title": "PackageBooking",
+      "description": "Health package booking request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "referenceNumber": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "packageId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "packageName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "patientName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "phone": { "type": "string", "minLength": 6, "maxLength": 32 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "preferredDate": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "referenceNumber", "userId", "packageId", "packageName", "patientName", "phone", "email", "preferredDate", "status", "createdAt", "updatedAt"]
+    },
+    "DiagnosticService": {
+      "title": "DiagnosticService",
+      "description": "Diagnostic imaging and laboratory service",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 2000 },
+        "preparation": { "type": "string", "maxLength": 1000 },
+        "turnaroundTime": { "type": "string", "maxLength": 120 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "category", "description", "updatedAt"]
+    },
+    "Article": {
+      "title": "Article",
+      "description": "Hospital news, awareness article, event, or patient story",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 4, "maxLength": 200 },
+        "kind": { "type": "string", "enum": ["news", "article", "event", "story", "press"] },
+        "category": { "type": "string", "maxLength": 80 },
+        "summary": { "type": "string", "maxLength": 500 },
+        "content": { "type": "string", "maxLength": 10000 },
+        "author": { "type": "string", "maxLength": 120 },
+        "publishedDate": { "type": "string", "maxLength": 30 },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "title", "kind", "category", "summary", "content", "isPublished", "updatedAt"]
+    },
+    "Inquiry": {
+      "title": "Inquiry",
+      "description": "Patient contact, ambulance, or diagnostic inquiry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "type": { "type": "string", "enum": ["general", "diagnostic", "ambulance", "international"] },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "phone": { "type": "string", "minLength": 6, "maxLength": 32 },
+        "subject": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "message": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["new", "in_review", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "type", "name", "email", "phone", "subject", "message", "status", "createdAt", "updatedAt"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "Patient feedback submission",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "patientName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "departmentName": { "type": "string", "maxLength": 100 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "minLength": 5, "maxLength": 1500 },
+        "status": { "type": "string", "enum": ["submitted", "reviewed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "patientName", "rating", "comment", "status", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User appointment or report notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "message": { "type": "string", "minLength": 2, "maxLength": 500 },
+        "category": { "type": "string", "enum": ["appointment", "report", "system"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "message", "category", "isRead", "createdAt", "updatedAt"]
+    },
+    "JobListing": {
+      "title": "JobListing",
+      "description": "Hospital career opening",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "department": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "employmentType": { "type": "string", "maxLength": 60 },
+        "location": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 3000 },
+        "isOpen": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "department", "employmentType", "location", "description", "isOpen", "updatedAt"]
+    },
+    "JobApplication": {
+      "title": "JobApplication",
+      "description": "Demo career application record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "jobId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "jobTitle": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "applicantName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "phone": { "type": "string", "minLength": 6, "maxLength": 32 },
+        "cvFileName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "coverNote": { "type": "string", "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["received", "shortlisted", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "jobId", "jobTitle", "applicantName", "email", "phone", "cvFileName", "status", "createdAt", "updatedAt"]
+    },
+    "DiagnosticReport": {
+      "title": "DiagnosticReport",
+      "description": "Demo patient diagnostic report metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "reportCode": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "testName": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "reportDate": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "status": { "type": "string", "enum": ["Ready", "Processing", "Sample Collected"] },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "reportCode", "testName", "category", "reportDate", "status", "createdAt"]
+    },
+    "WebsiteSettings": {
+      "title": "WebsiteSettings",
+      "description": "Configurable hospital site settings",
+      "type": "object",
+      "properties": {
+        "hospitalName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "emergencyNotice": { "type": "string", "maxLength": 500 },
+        "emergencyContactLabel": { "type": "string", "maxLength": 120 },
+        "generalPhoneLabel": { "type": "string", "maxLength": 120 },
+        "contactEmail": { "type": "string", "maxLength": 160 },
+        "address": { "type": "string", "maxLength": 300 },
+        "defaultLanguage": { "type": "string", "enum": ["en", "bn"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hospitalName", "emergencyNotice", "emergencyContactLabel", "contactEmail", "address", "defaultLanguage", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Authorized hospital administrators"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Patient user profiles (strictly owner or admin read/write)"
+    },
+    "/doctors/{doctorId}": {
+      "schema": { "$ref": "#/entities/Doctor" },
+      "description": "Public demo doctor directory"
+    },
+    "/departments/{departmentId}": {
+      "schema": { "$ref": "#/entities/Department" },
+      "description": "Public medical specialties catalog"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Patient appointment requests"
+    },
+    "/appointmentSlots/{slotKey}": {
+      "schema": { "$ref": "#/entities/AppointmentSlot" },
+      "description": "Deterministic slot locks preventing duplicate bookings"
+    },
+    "/healthPackages/{packageId}": {
+      "schema": { "$ref": "#/entities/HealthPackage" },
+      "description": "Preventive health checkup packages"
+    },
+    "/packageBookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/PackageBooking" },
+      "description": "Patient health package booking requests"
+    },
+    "/diagnosticServices/{serviceId}": {
+      "schema": { "$ref": "#/entities/DiagnosticService" },
+      "description": "Diagnostic and laboratory services"
+    },
+    "/articles/{articleId}": {
+      "schema": { "$ref": "#/entities/Article" },
+      "description": "Hospital news, articles, events, and patient stories"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/Inquiry" },
+      "description": "Patient inquiries and support requests"
+    },
+    "/feedback/{feedbackId}": {
+      "schema": { "$ref": "#/entities/Feedback" },
+      "description": "Patient feedback entries"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "Patient portal notifications"
+    },
+    "/jobListings/{jobId}": {
+      "schema": { "$ref": "#/entities/JobListing" },
+      "description": "Open career opportunities"
+    },
+    "/jobApplications/{applicationId}": {
+      "schema": { "$ref": "#/entities/JobApplication" },
+      "description": "Career job applications"
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/DiagnosticReport" },
+      "description": "Demo diagnostic report records restricted to owner and admin"
+    },
+    "/websiteSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/WebsiteSettings" },
+      "description": "Admin-configurable hospital site settings"
+    }
+  }
+}

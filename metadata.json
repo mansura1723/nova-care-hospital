@@ -1,0 +1,6 @@
+{
+  "name": "Nova Care Hospital",
+  "description": "International multi-specialty smart hospital platform with specialist directory, appointment requests, diagnostic services, patient portal, admin dashboard, and AI healthcare guidance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
